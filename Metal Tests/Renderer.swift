@@ -17,6 +17,7 @@ class Renderer : NSObject, MTKViewDelegate {
 	let vertexBuffer: MTLBuffer
 	let fragmentUniformsBuffer: MTLBuffer
 	let gpuLock = DispatchSemaphore(value: 1)
+	var mtkView: MTKView
 	
 	// This keeps track of the system time of the last render
 	var lastRenderTime: CFTimeInterval? = nil
@@ -26,8 +27,10 @@ class Renderer : NSObject, MTKViewDelegate {
 	// This is the initializer for the Renderer class.
 	// We will need access to the mtkView later, so we add it as a parameter here.
 	init?(mtkView: MTKView) {
+		self.mtkView = mtkView
 		device = mtkView.device!
 		commandQueue = device.makeCommandQueue()!
+		
 		
 		// Create the Render Pipeline
 		do {
@@ -39,14 +42,15 @@ class Renderer : NSObject, MTKViewDelegate {
 		
 		// Create our vertex data
 		let vertices = [Vertex(color: [1, 0, 0, 1], pos: [-1, -1], brightness: 1.0),
-						Vertex(color: [0, 1, 0, 1], pos: [0, 1], brightness: 1.0),
-						Vertex(color: [0, 0, 1, 1], pos: [1, -1], brightness: 1.0),]
+						Vertex(color: [0, 1, 0, 1], pos: [1, -1], brightness: 1.0),
+						Vertex(color: [0, 0, 1, 1], pos: [-1, 1], brightness: 1.0),
+						Vertex(color: [1, 0, 1, 1], pos: [1, 1], brightness: 1.0)]
 		
 		// And copy it to a Metal buffer...
 		vertexBuffer = device.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<Vertex>.stride, options: [])!
 		
 		//Create Uniform Buffer
-		var initialFragmentUniforms = FragmentUniforms(currentTime: Float(currentTime), dt: 0)
+		var initialFragmentUniforms = FragmentUniforms(currentTime: Float(currentTime), dt: Float((lastRenderTime ?? 0)), resolution: [Float(mtkView.drawableSize.width), Float(mtkView.drawableSize.height)])
 		fragmentUniformsBuffer = device.makeBuffer(bytes: &initialFragmentUniforms, length: MemoryLayout<FragmentUniforms>.stride, options: [])!
 	}
 	
@@ -90,7 +94,7 @@ class Renderer : NSObject, MTKViewDelegate {
 		
 		
 		// And what to draw
-		renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+		renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 		
 		/// BETWEEN THESE TWO IS WHERE WE ENCODE DRAWING COMMANDS
 		
@@ -137,7 +141,7 @@ class Renderer : NSObject, MTKViewDelegate {
 	}
 
 	func updateUniforms() {
-		var fragmentUniforms = FragmentUniforms(currentTime: Float(currentTime), dt: Float(lastRenderTime ?? 0))
+		var fragmentUniforms = FragmentUniforms(currentTime: Float(currentTime), dt: Float(lastRenderTime ?? 0), resolution: [Float(mtkView.drawableSize.width), Float(mtkView.drawableSize.height)])
 		let bufferPointer = fragmentUniformsBuffer.contents()
 		memcpy(bufferPointer, &fragmentUniforms, MemoryLayout<FragmentUniforms>.stride)
 	}

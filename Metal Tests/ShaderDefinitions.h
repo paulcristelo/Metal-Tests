@@ -19,6 +19,7 @@ struct Vertex {
 struct FragmentUniforms {
 	float currentTime;
 	float dt;
+	vector_float2 resolution;
 	
 };
 
